@@ -1,10 +1,11 @@
-public class fields {
+public class Field {
 
     private int size;
 
-    public fields_1(int size) {
+    public Field(int size) {
         this.size = size;
     }
+
     public void printField(Turtle turtle) {
 
         for (int i = 0; i < size; i++) {
@@ -15,14 +16,14 @@ public class fields {
                 } else {
                     System.out.print(". ");
                 }
+
             }
             System.out.println();
         }
+
         System.out.println();
     }
 
-
-  
     public int getSize() {
         return size;
     }
