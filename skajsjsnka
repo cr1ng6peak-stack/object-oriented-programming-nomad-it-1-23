@@ -1,0 +1,410 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.util.Random;
+
+public class Game2048 extends JFrame {
+    // Основные компоненты игры
+    private GamePanel gamePanel;
+    private JLabel scoreLabel;
+    private JLabel bestScoreLabel;
+    
+    // Игровые данные
+    private int[][] tiles;      // 4x4 матрица тайлов
+    private int score;
+    private int bestScore;
+    private Random random;
+    
+    // Размеры окна
+    private static final int BOARD_SIZE = 4;
+    private static final int TILE_SIZE = 100;
+    private static final int GAP = 10;
+    
+    public Game2048() {
+        // Инициализация данных
+        tiles = new int[BOARD_SIZE][BOARD_SIZE];
+        random = new Random();
+        score = 0;
+        
+        // Загрузка рекорда (для простоты храним в переменной)
+        bestScore = 0;
+        
+        // Настройка окна
+        setTitle("2048 Game");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+        
+        // Создание верхней панели со счётом
+        JPanel topPanel = new JPanel(new GridLayout(1, 2));
+        scoreLabel = new JLabel("Score: 0", SwingConstants.CENTER);
+        scoreLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        bestScoreLabel = new JLabel("Best: 0", SwingConstants.CENTER);
+        bestScoreLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        topPanel.add(scoreLabel);
+        topPanel.add(bestScoreLabel);
+        
+        // Создание игрового поля
+        gamePanel = new GamePanel();
+        
+        // Добавление компонентов в окно
+        add(topPanel, BorderLayout.NORTH);
+        add(gamePanel, BorderLayout.CENTER);
+        
+        // Настройка клавиатуры (KeyAdapter)
+        setupKeyboard();
+        
+        // Инициализация игры
+        initGame();
+        
+        // Настройка размеров окна
+        setSize(TILE_SIZE * BOARD_SIZE + GAP * (BOARD_SIZE + 1), 
+                 TILE_SIZE * BOARD_SIZE + GAP * (BOARD_SIZE + 1) + 60);
+        setResizable(false);
+        setLocationRelativeTo(null); // Центрирование окна
+        setVisible(true);
+    }
+    
+    // Настройка обработки клавиш (KeyAdapter)
+    private void setupKeyboard() {
+        addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_LEFT:
+                        moveLeft();
+                        break;
+                    case KeyEvent.VK_RIGHT:
+                        moveRight();
+                        break;
+                    case KeyEvent.VK_UP:
+                        moveUp();
+                        break;
+                    case KeyEvent.VK_DOWN:
+                        moveDown();
+                        break;
+                    case KeyEvent.VK_R:
+                        resetGame();
+                        break;
+                }
+                // Перерисовка после каждого хода
+                gamePanel.repaint();
+            }
+        });
+        setFocusable(true); // Чтобы JFrame получал события клавиш
+    }
+    
+    // Инициализация новой игры
+    private void initGame() {
+        // Очистка поля
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                tiles[i][j] = 0;
+            }
+        }
+        score = 0;
+        updateScoreLabels();
+        
+        // Добавление двух начальных тайлов
+        addRandomTile();
+        addRandomTile();
+    }
+    
+    // Сброс игры
+    private void resetGame() {
+        initGame();
+        gamePanel.repaint();
+    }
+    
+    // Добавление случайного тайла (2 или 4)
+    private void addRandomTile() {
+        // Находим все пустые клетки
+        java.util.ArrayList<Point> emptyCells = new java.util.ArrayList<>();
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                if (tiles[i][j] == 0) {
+                    emptyCells.add(new Point(i, j));
+                }
+            }
+        }
+        
+        if (!emptyCells.isEmpty()) {
+            Point randomCell = emptyCells.get(random.nextInt(emptyCells.size()));
+            // 90% вероятность получить 2, 10% - 4
+            int value = random.nextDouble() < 0.9 ? 2 : 4;
+            tiles[randomCell.x][randomCell.y] = value;
+        }
+    }
+    
+    // ============ МЕТОДЫ ЛЕВОГО И ПРАВОГО ДВИЖЕНИЯ ============
+    
+    // Движение влево (Left)
+    private void moveLeft() {
+        boolean moved = false;
+        
+        for (int i = 0; i < BOARD_SIZE; i++) {  // Проходим по каждой строке
+            // Сдвигаем все числа влево и объединяем одинаковые
+            int[] newRow = new int[BOARD_SIZE];
+            int position = 0;
+            
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                if (tiles[i][j] != 0) {
+                    // Если последний элемент в newRow такой же, объединяем
+                    if (position > 0 && newRow[position - 1] == tiles[i][j]) {
+                        newRow[position - 1] *= 2;
+                        score += newRow[position - 1];
+                        moved = true;
+                    } else {
+                        newRow[position] = tiles[i][j];
+                        position++;
+                    }
+                }
+            }
+            
+            // Проверяем, изменилась ли строка
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                if (tiles[i][j] != newRow[j]) {
+                    moved = true;
+                }
+                tiles[i][j] = newRow[j];
+            }
+        }
+        
+        if (moved) {
+            updateScoreLabels();
+            addRandomTile();
+            checkGameOver();
+        }
+    }
+    
+    // Движение вправо (Right) - зеркальное отражение левого
+    private void moveRight() {
+        boolean moved = false;
+        
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            int[] newRow = new int[BOARD_SIZE];
+            int position = BOARD_SIZE - 1;
+            
+            for (int j = BOARD_SIZE - 1; j >= 0; j--) {
+                if (tiles[i][j] != 0) {
+                    if (position < BOARD_SIZE - 1 && newRow[position + 1] == tiles[i][j]) {
+                        newRow[position + 1] *= 2;
+                        score += newRow[position + 1];
+                        moved = true;
+                    } else {
+                        newRow[position] = tiles[i][j];
+                        position--;
+                    }
+                }
+            }
+            
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                if (tiles[i][j] != newRow[j]) {
+                    moved = true;
+                }
+                tiles[i][j] = newRow[j];
+            }
+        }
+        
+        if (moved) {
+            updateScoreLabels();
+            addRandomTile();
+            checkGameOver();
+        }
+    }
+    
+    // Движение вверх (аналогично left, но по столбцам)
+    private void moveUp() {
+        boolean moved = false;
+        
+        for (int j = 0; j < BOARD_SIZE; j++) {  // Проходим по столбцам
+            int[] newColumn = new int[BOARD_SIZE];
+            int position = 0;
+            
+            for (int i = 0; i < BOARD_SIZE; i++) {
+                if (tiles[i][j] != 0) {
+                    if (position > 0 && newColumn[position - 1] == tiles[i][j]) {
+                        newColumn[position - 1] *= 2;
+                        score += newColumn[position - 1];
+                        moved = true;
+                    } else {
+                        newColumn[position] = tiles[i][j];
+                        position++;
+                    }
+                }
+            }
+            
+            for (int i = 0; i < BOARD_SIZE; i++) {
+                if (tiles[i][j] != newColumn[i]) {
+                    moved = true;
+                }
+                tiles[i][j] = newColumn[i];
+            }
+        }
+        
+        if (moved) {
+            updateScoreLabels();
+            addRandomTile();
+            checkGameOver();
+        }
+    }
+    
+    // Движение вниз (аналогично right, но по столбцам)
+    private void moveDown() {
+        boolean moved = false;
+        
+        for (int j = 0; j < BOARD_SIZE; j++) {
+            int[] newColumn = new int[BOARD_SIZE];
+            int position = BOARD_SIZE - 1;
+            
+            for (int i = BOARD_SIZE - 1; i >= 0; i--) {
+                if (tiles[i][j] != 0) {
+                    if (position < BOARD_SIZE - 1 && newColumn[position + 1] == tiles[i][j]) {
+                        newColumn[position + 1] *= 2;
+                        score += newColumn[position + 1];
+                        moved = true;
+                    } else {
+                        newColumn[position] = tiles[i][j];
+                        position--;
+                    }
+                }
+            }
+            
+            for (int i = 0; i < BOARD_SIZE; i++) {
+                if (tiles[i][j] != newColumn[i]) {
+                    moved = true;
+                }
+                tiles[i][j] = newColumn[i];
+            }
+        }
+        
+        if (moved) {
+            updateScoreLabels();
+            addRandomTile();
+            checkGameOver();
+        }
+    }
+    
+    // Обновление меток счёта
+    private void updateScoreLabels() {
+        scoreLabel.setText("Score: " + score);
+        if (score > bestScore) {
+            bestScore = score;
+            bestScoreLabel.setText("Best: " + bestScore);
+        }
+    }
+    
+    // Проверка окончания игры
+    private void checkGameOver() {
+        boolean gameOver = true;
+        
+        // Проверяем, есть ли пустые клетки
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                if (tiles[i][j] == 0) {
+                    gameOver = false;
+                    break;
+                }
+            }
+        }
+        
+        // Проверяем, можно ли объединить соседние тайлы
+        if (gameOver) {
+            for (int i = 0; i < BOARD_SIZE; i++) {
+                for (int j = 0; j < BOARD_SIZE - 1; j++) {
+                    if (tiles[i][j] == tiles[i][j + 1] || 
+                        (i < BOARD_SIZE - 1 && tiles[i][j] == tiles[i + 1][j])) {
+                        gameOver = false;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (gameOver) {
+            JOptionPane.showMessageDialog(this, "Game Over! Score: " + score, 
+                                         "Game Over", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+    
+    // ============ ВНУТРЕННИЙ КЛАСС ДЛЯ ОТРИСОВКИ ============
+    
+    // Панель для рисования игрового поля (генерация цвета тайлов)
+    class GamePanel extends JPanel {
+        
+        public GamePanel() {
+            setBackground(new Color(187, 173, 160)); // Цвет фона
+            setPreferredSize(new Dimension(TILE_SIZE * BOARD_SIZE + GAP * (BOARD_SIZE + 1),
+                                          TILE_SIZE * BOARD_SIZE + GAP * (BOARD_SIZE + 1)));
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            // Рисуем сетку и тайлы
+            for (int i = 0; i < BOARD_SIZE; i++) {
+                for (int j = 0; j < BOARD_SIZE; j++) {
+                    int value = tiles[i][j];
+                    int x = j * (TILE_SIZE + GAP) + GAP;
+                    int y = i * (TILE_SIZE + GAP) + GAP;
+                    
+                    // Генерация цвета в зависимости от значения тайла
+                    Color tileColor = getTileColor(value);
+                    g2d.setColor(tileColor);
+                    g2d.fillRoundRect(x, y, TILE_SIZE, TILE_SIZE, 10, 10);
+                    
+                    // Рисуем число
+                    if (value != 0) {
+                        g2d.setColor(getTextColor(value));
+                        g2d.setFont(new Font("Arial", Font.BOLD, getFontSize(value)));
+                        String text = String.valueOf(value);
+                        FontMetrics fm = g2d.getFontMetrics();
+                        int textX = x + (TILE_SIZE - fm.stringWidth(text)) / 2;
+                        int textY = y + (TILE_SIZE - fm.getHeight()) / 2 + fm.getAscent();
+                        g2d.drawString(text, textX, textY);
+                    }
+                }
+            }
+        }
+        
+        // Метод для генерации цвета тайла (основан на значении)
+        private Color getTileColor(int value) {
+            switch (value) {
+                case 0: return new Color(204, 192, 179);
+                case 2: return new Color(238, 228, 218);
+                case 4: return new Color(237, 224, 200);
+                case 8: return new Color(242, 177, 121);
+                case 16: return new Color(245, 149, 99);
+                case 32: return new Color(246, 124, 95);
+                case 64: return new Color(246, 94, 59);
+                case 128: return new Color(237, 207, 114);
+                case 256: return new Color(237, 204, 97);
+                case 512: return new Color(237, 200, 80);
+                case 1024: return new Color(237, 197, 63);
+                case 2048: return new Color(237, 194, 46);
+                default: return new Color(60, 58, 50); // Для больших чисел
+            }
+        }
+        
+        // Цвет текста (тёмный для светлых тайлов, светлый для тёмных)
+        private Color getTextColor(int value) {
+            return value <= 4 ? new Color(119, 110, 101) : Color.WHITE;
+        }
+        
+        // Размер шрифта в зависимости от длины числа
+        private int getFontSize(int value) {
+            if (value < 100) return 40;
+            if (value < 1000) return 30;
+            return 24;
+        }
+    }
+    
+    // ============ ТОЧКА ВХОДА ============
+    public static void main(String[] args) {
+        // Запуск в потоке обработки событий Swing
+        SwingUtilities.invokeLater(() -> new Game2048());
+    }
+}
